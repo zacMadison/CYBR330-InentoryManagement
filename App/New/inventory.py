@@ -134,6 +134,7 @@ class InventoryManager:
             print(f"{prefix}└── {node.name}")
 
         # Recurse through children
+        # POSSIBLE IMPROVEMENT: Can be done without recursion (issue #7)
         for child in node.children:
             self.display_category_tree(child, level + 1)
         if level == 0:
@@ -195,12 +196,13 @@ class InventoryManager:
 
     def get_item_by_name(self, name: str) -> Optional[InventoryItem]:
         """Retrieves an item by its name (case-insensitive)."""
+        # POSSIBLE IMPROVEMENT: Can be done with Binary Search (Issue #5)
         for item in self.items:
             if item.name.lower() == name.lower():
                 return item
         return None
 
-    # POSSIBLE IMPROVEMENT .remove takes O(N), can be done faster if list is sorted
+    # POSSIBLE IMPROVEMENT .remove takes O(N), can be done faster if list is sorted (Issue #5)
     def remove_item(self, name: str):
         """Removes an item from the inventory by name."""
         item_to_remove = self.get_item_by_name(name)
@@ -210,7 +212,7 @@ class InventoryManager:
         else:
             print(f"[ERROR] Item '{name}' not found.")
 
-    # POSSIBLE IMPROVEMENT
+    # POSSIBLE IMPROVEMENT  (issue #4)
     # Program uses .sort, python implementation of sort uses Timsort, this runs in the same time.
     # The drawback of Timsort is that it uses O(n) Auxiliary space,
     # where heap sort only takes O(n) total space (O(1) Auxiliary space)
@@ -238,9 +240,12 @@ class InventoryManager:
 
     def display_inventory(self, filter_path: Optional[List[str]] = None):
         """Prints the current inventory items, optionally filtered by category."""
-        # POSSIBLE IMPROVEMENT: unnecessarily grabs all items, when only one category may be used
-        #   same max time (worst case all items can be in one category) but improves best and average cases
         items_to_display = self.items
+
+        # POSSIBLE IMPROVEMENT  (issue #6)
+        # This filters items by iterating through every stored item, which takes O(n) where
+        # n = number of items. This could instead be done by navigating the category tree and adding items from there.
+        # this has a worse worst case scenario, O(n) where n = nodes, but should be faster for intended use case.
 
         if filter_path:
             # Filter items whose category_path starts with the filter_path
@@ -461,7 +466,7 @@ def run_app():
             print("\n--- EDIT ITEM ---")
             name_to_edit = input("Enter name of item to edit: ").strip()
 
-            # POSSIBLE IMPROVEMENT: searching with if takes O(N), can instead search for item using binary search
+            # POSSIBLE IMPROVEMENT: function get_item_by_name can be improved with binary search (issue #5)
             if not manager.get_item_by_name(name_to_edit):
                 print(f"[ERROR] Item '{name_to_edit}' not found.")
                 continue
@@ -510,8 +515,7 @@ def run_app():
                                                      required=False)
 
                 # Check if the entered path is valid (exists in the tree)
-                # POSSIBLE IMPROVEMENT: likely checks entire tree, could check children from the root, then move down
-                #   check new nodes children
+
                 if input_path and not manager.find_category_node(input_path):
                     print(f"[ERROR] Category path {' > '.join(input_path)} not found. Displaying all items instead.")
                 elif input_path:

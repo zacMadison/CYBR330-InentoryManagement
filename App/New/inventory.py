@@ -9,9 +9,11 @@ import os
 class CategoryNode:
     """Represents a single node in the category hierarchy."""
 
+    # Changed by Zach M. added variable to track inventory items
     def __init__(self, name: str):
         self.name: str = name
         self.children: List['CategoryNode'] = []
+        self.items = []
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the node and its children to a serializable dictionary."""
@@ -142,6 +144,8 @@ class InventoryManager:
 
     # --- Item Management Methods ---
 
+
+    # changed by Zach M. now category tree actually stores items
     def add_item(self, item: InventoryItem):
         """Adds a new item to the inventory, ensuring the category exists."""
         if any(i.name.lower() == item.name.lower() for i in self.items):
@@ -154,6 +158,9 @@ class InventoryManager:
             return
 
         self.items.append(item)
+        if item.category_path:
+            node = self.find_category_node(item.category_path)
+            node.items.append(items[-1])
         print(f"[SUCCESS] Successfully added: {item.name}")
 
     def edit_item(self, name: str, new_quantity: Optional[int] = None, new_price: Optional[float] = None,
@@ -289,6 +296,7 @@ class InventoryManager:
         except IOError as e:
             print(f"\n[SYSTEM ERROR] Error saving inventory: {e}")
 
+# Changed by Zach M. now loads inventory items into the category tree for issue #6
     def load_inventory(self, filename: str = "inventory_data.json"):
         """Loads inventory data and category tree from a JSON file."""
         try:
@@ -316,6 +324,10 @@ class InventoryManager:
                         category_path=item_data.get('category_path', [])
                     )
                     self.items.append(new_item)
+                    if new_item.category_path:
+                        node = self.find_category_node(new_item.category_path)
+                        node.items.append(self.items[-1])
+
 
             print(f"[SYSTEM] Successfully loaded {len(self.items)} items from '{filename}'.")
 

@@ -122,23 +122,29 @@ class InventoryManager:
         parent_node.children.append(CategoryNode(new_category_name))
         print(f"[SUCCESS] Added category: {' > '.join(path)}")
 
-    def display_category_tree(self, node: Optional[CategoryNode] = None, level: int = 0):
-        """Recursively prints the category tree structure."""
-        if node is None:
-            node = self.category_tree
-            print("\n--- Current Category Tree ---")
+    def display_category_tree(self):
+        """Iteratively prints the category tree structure without recursion."""
+        if not self.category_tree:
+            print("No category tree available.")
+            return
 
-        # Only print if it's not the hidden ROOT node
-        if node.name != "ROOT":
-            prefix = "  " * (level - 1)
-            print(f"{prefix}└── {node.name}")
-
-        # Recurse through children
-        # POSSIBLE IMPROVEMENT: Can be done without recursion (issue #7)
-        for child in node.children:
-            self.display_category_tree(child, level + 1)
-        if level == 0:
-            print("-----------------------------\n")
+        print("\n--- Current Category Tree ---")
+        
+        stack = [(self.category_tree, 0)]  # (node, level)
+        
+        while stack:
+            node, level = stack.pop()
+            
+            # Skip the hidden ROOT node
+            if node.name != "ROOT":
+                prefix = "  " * (level - 1)
+                print(f"{prefix}└── {node.name}")
+            
+            # Add children to stack in reverse order to preserve original order
+            for child in reversed(node.children):
+                stack.append((child, level + 1))
+        
+        print("-----------------------------\n")
 
     # --- Item Management Methods ---
 

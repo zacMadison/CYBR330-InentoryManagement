@@ -1,5 +1,6 @@
 import datetime
 from typing import List, Optional, Dict, Any
+from linked_queue import LinkedQueue
 import json
 import os
 
@@ -160,7 +161,7 @@ class InventoryManager:
         self.items.append(item)
         if item.category_path:
             node = self.find_category_node(item.category_path)
-            node.items.append(items[-1])
+            node.items.append(item)
         print(f"[SUCCESS] Successfully added: {item.name}")
 
     def edit_item(self, name: str, new_quantity: Optional[int] = None, new_price: Optional[float] = None,
@@ -188,12 +189,20 @@ class InventoryManager:
             print("[WARNING] Price must be non-negative. Price not changed.")
 
         # Update Category Path
-        if new_category_path is not None:
+        # CHANGED BY ZACH M: Now also changes items inside tree when category path is updated
+        # Bug fix: would previously trigger, even if not changed because new_category_path input is never none
+            # bug may be present elsewhere
+        if not new_category_path == []:
             if new_category_path and not self.find_category_node(new_category_path):
                 print(
                     f"[ERROR] New category path {' > '.join(new_category_path)} does not exist. Category not changed.")
             else:
+                if not item.category_path == []:
+                    node = self.find_category_node(item.category_path)
+                    node.items.remove(item)
                 item.category_path = new_category_path
+                new_node = self.find_category_node(item.category_path)
+                new_node.items.append(item)
                 updated_fields.append(f"Category -> {' > '.join(new_category_path)}")
 
         if updated_fields:
@@ -247,7 +256,7 @@ class InventoryManager:
 
     def display_inventory(self, filter_path: Optional[List[str]] = None):
         """Prints the current inventory items, optionally filtered by category."""
-        items_to_display = self.items
+
 
         # POSSIBLE IMPROVEMENT  (issue #6)
         # This filters items by iterating through every stored item, which takes O(n) where
@@ -255,15 +264,31 @@ class InventoryManager:
         # this has a worse worst case scenario, O(n) where n = nodes, but should be faster for intended use case.
 
         if filter_path:
-            # Filter items whose category_path starts with the filter_path
-            # This ensures that selecting 'Electronics' also shows items in 'Electronics > Laptops'
-            items_to_display = [
-                item for item in self.items
-                if len(item.category_path) >= len(filter_path) and item.category_path[:len(filter_path)] == filter_path
-            ]
+            items_to_display = []
+            # Find node indicated by path
+            node = self.find_category_node(filter_path)
+            current_node = node         # tracks current node, starting with root
+            running = True              # bool for looping
+            next_nodes = LinkedQueue()
+            # Use a queue to implement a breadth first search, this allows us to also find items that are children
+            # of other nodes on the specified path
+            while running:
+                for item in current_node.items:
+                    items_to_display.append(item)
+
+
+                for child in current_node.children:                         # add children of current node to next_nodes queue
+                    next_nodes.enqueue(child)
+                if next_nodes.is_empty():                           # if next_nodes is empty, entire tree has been
+                    running = False                                 # searched
+                else:
+                    current_node = next_nodes.dequeue()
+
+
             filter_str = f" in Category: {' > '.join(filter_path)}"
         else:
             filter_str = ""
+            items_to_display = self.items
 
         if not items_to_display:
             print(f"\n--- Inventory is Empty{filter_str} ---")

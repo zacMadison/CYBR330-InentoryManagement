@@ -122,29 +122,46 @@ class InventoryManager:
         parent_node.children.append(CategoryNode(new_category_name))
         print(f"[SUCCESS] Added category: {' > '.join(path)}")
 
-    def display_category_tree(self):
-        """Iteratively prints the category tree structure without recursion."""
-        if not self.category_tree:
-            print("No category tree available.")
-            return
+    def display_category_tree(self, node: Optional[CategoryNode] = None, level: int = 0):
+        """Iteratively prints the category tree structure without recursion,
+        perfectly matching the recursive version's behavior."""
 
-        print("\n--- Current Category Tree ---")
-        
-        stack = [(self.category_tree, 0)]  # (node, level)
-        
+        # Match recursive behavior: If node is None, use ROOT and print header
+        if node is None:
+            node = self.category_tree
+            print("\n--- Current Category Tree ---")
+
+        # Explicit stack for iterative DFS
+        # (node, level, visited_children_flag)
+        stack = [(node, level, False)]
+
         while stack:
-            node, level = stack.pop()
-            
-            # Skip the hidden ROOT node
-            if node.name != "ROOT":
-                prefix = "  " * (level - 1)
-                print(f"{prefix}└── {node.name}")
-            
-            # Add children to stack in reverse order to preserve original order
-            for child in reversed(node.children):
-                stack.append((child, level + 1))
-        
-        print("-----------------------------\n")
+            node, level, visited = stack.pop()
+
+            if not visited:
+                # Simulate recursive behavior:
+                # First time we see the node:
+                #   1) print (if not ROOT)
+                #   2) then schedule children
+                #   3) then schedule node again as "visited"
+
+                # Print same as recursive version
+                if node.name != "ROOT":
+                    prefix = "  " * (level - 1)
+                    print(f"{prefix}└── {node.name}")
+
+                # Push back this node to handle after children
+                stack.append((node, level, True))
+
+                # Push children in reverse order for correct print order
+                for child in reversed(node.children):
+                    stack.append((child, level + 1, False))
+
+            else:
+                # After all children processed
+                if level == 0:
+                    # Match recursive version ending line
+                    print("-----------------------------\n")
 
     # --- Item Management Methods ---
 

@@ -1,10 +1,11 @@
 import datetime
 from typing import List, Optional, Dict, Any
-from linked_queue import LinkedQueue
 import json
 import os
-
-
+import sys
+folder_path = os.path.abspath('DataStructures')
+sys.path.append(folder_path)
+import linked_queue
 # --- New Category Tree Structure ---
 
 class CategoryNode:

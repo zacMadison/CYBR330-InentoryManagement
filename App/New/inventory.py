@@ -1,6 +1,5 @@
 import datetime
 from typing import List, Optional, Dict, Any
-from linked_queue import LinkedQueue
 import json
 import os
 
@@ -10,11 +9,9 @@ import os
 class CategoryNode:
     """Represents a single node in the category hierarchy."""
 
-    # Changed by Zach M. added variable to track inventory items
     def __init__(self, name: str):
         self.name: str = name
         self.children: List['CategoryNode'] = []
-        self.items = []
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the node and its children to a serializable dictionary."""
@@ -125,51 +122,32 @@ class InventoryManager:
         parent_node.children.append(CategoryNode(new_category_name))
         print(f"[SUCCESS] Added category: {' > '.join(path)}")
 
-    def display_category_tree(self, node: Optional[CategoryNode] = None, level: int = 0):
-        """Iteratively prints the category tree structure without recursion,
-        perfectly matching the recursive version's behavior."""
+    def display_category_tree(self):
+        """Iteratively prints the category tree structure without recursion."""
+        if not self.category_tree:
+            print("No category tree available.")
+            return
 
-        # Match recursive behavior: If node is None, use ROOT and print header
-        if node is None:
-            node = self.category_tree
-            print("\n--- Current Category Tree ---")
-
-        # Explicit stack for iterative DFS
-        # (node, level, visited_children_flag)
-        stack = [(node, level, False)]
-
+        print("\n--- Current Category Tree ---")
+        
+        stack = [(self.category_tree, 0)]  # (node, level)
+        
         while stack:
-            node, level, visited = stack.pop()
-
-            if not visited:
-                # Simulate recursive behavior:
-                # First time we see the node:
-                #   1) print (if not ROOT)
-                #   2) then schedule children
-                #   3) then schedule node again as "visited"
-
-                # Print same as recursive version
-                if node.name != "ROOT":
-                    prefix = "  " * (level - 1)
-                    print(f"{prefix}└── {node.name}")
-
-                # Push back this node to handle after children
-                stack.append((node, level, True))
-
-                # Push children in reverse order for correct print order
-                for child in reversed(node.children):
-                    stack.append((child, level + 1, False))
-
-            else:
-                # After all children processed
-                if level == 0:
-                    # Match recursive version ending line
-                    print("-----------------------------\n")
+            node, level = stack.pop()
+            
+            # Skip the hidden ROOT node
+            if node.name != "ROOT":
+                prefix = "  " * (level - 1)
+                print(f"{prefix}└── {node.name}")
+            
+            # Add children to stack in reverse order to preserve original order
+            for child in reversed(node.children):
+                stack.append((child, level + 1))
+        
+        print("-----------------------------\n")
 
     # --- Item Management Methods ---
 
-
-    # changed by Zach M. now category tree actually stores items
     def add_item(self, item: InventoryItem):
         """Adds a new item to the inventory, ensuring the category exists."""
         if any(i.name.lower() == item.name.lower() for i in self.items):
@@ -182,9 +160,7 @@ class InventoryManager:
             return
 
         self.items.append(item)
-        if item.category_path:
-            node = self.find_category_node(item.category_path)
-            node.items.append(item)
+        self.items.sort(key=lambda x: x.name.lower())
         print(f"[SUCCESS] Successfully added: {item.name}")
 
     def edit_item(self, name: str, new_quantity: Optional[int] = None, new_price: Optional[float] = None,
@@ -212,20 +188,12 @@ class InventoryManager:
             print("[WARNING] Price must be non-negative. Price not changed.")
 
         # Update Category Path
-        # CHANGED BY ZACH M: Now also changes items inside tree when category path is updated
-        # Bug fix: would previously trigger, even if not changed because new_category_path input is never none
-            # bug may be present elsewhere
-        if not new_category_path == []:
+        if new_category_path is not None:
             if new_category_path and not self.find_category_node(new_category_path):
                 print(
                     f"[ERROR] New category path {' > '.join(new_category_path)} does not exist. Category not changed.")
             else:
-                if not item.category_path == []:
-                    node = self.find_category_node(item.category_path)
-                    node.items.remove(item)
                 item.category_path = new_category_path
-                new_node = self.find_category_node(item.category_path)
-                new_node.items.append(item)
                 updated_fields.append(f"Category -> {' > '.join(new_category_path)}")
 
         if updated_fields:
@@ -234,22 +202,68 @@ class InventoryManager:
             print(f"No valid updates provided for '{name}'.")
 
     def get_item_by_name(self, name: str) -> Optional[InventoryItem]:
-        """Retrieves an item by its name (case-insensitive)."""
-        # POSSIBLE IMPROVEMENT: Can be done with Binary Search (Issue #5)
-        for item in self.items:
-            if item.name.lower() == name.lower():
-                return item
+        """
+        Retrieves an item by its name using the existing binary_search function.
+
+        Returns:
+            - InventoryItem if found
+            - None if not found
+        """
+
+        # Call the existing binary_search function to get the index
+        index = self.binary_search(name)
+
+        # If index is valid, return the item
+        if index != -1:
+            return self.items[index]
+
+        # Otherwise, item not found
         return None
+
+    def binary_search(self, name: str) -> int:
+        """
+        Performs a binary search on the sorted list self.items to find an item by name.
+
+        Return value:
+            - Returns the index of the matching item if found
+            - Returns -1 if the item does not exist
+        """
+
+        left, right = 0, len(self.items) - 1
+        target = name.lower()  # Normalize search string for case-insensitive comparison
+
+        # Iteratively narrow down the search range
+        while left <= right:
+            mid = (left + right) // 2
+            current_name = self.items[mid].name.lower()
+
+            # Case 1: Match found → return index immediately
+            if current_name == target:
+                return mid
+
+            # Case 2: Target name is alphabetically larger than the mid element
+            elif current_name < target:
+                left = mid + 1  # Search in the right half
+
+            # Case 3: Target name is alphabetically smaller than mid element
+            else:
+                right = mid - 1  # Search in the left half
+
+        # If search interval collapses without finding a match, return -1
+        return -1
 
     # POSSIBLE IMPROVEMENT .remove takes O(N), can be done faster if list is sorted (Issue #5)
     def remove_item(self, name: str):
-        """Removes an item from the inventory by name."""
-        item_to_remove = self.get_item_by_name(name)
-        if item_to_remove:
-            self.items.remove(item_to_remove)
-            print(f"[SUCCESS] Successfully removed: {name}")
-        else:
+        index = self.binary_search(name)
+
+        if index == -1:
             print(f"[ERROR] Item '{name}' not found.")
+            return
+
+        removed_item = self.items.pop(index)
+
+        print(f"[SUCCESS] Successfully removed: {removed_item.name}")
+
 
     # POSSIBLE IMPROVEMENT  (issue #4)
     # Program uses .sort, python implementation of sort uses Timsort, this runs in the same time.
@@ -279,7 +293,7 @@ class InventoryManager:
 
     def display_inventory(self, filter_path: Optional[List[str]] = None):
         """Prints the current inventory items, optionally filtered by category."""
-
+        items_to_display = self.items
 
         # POSSIBLE IMPROVEMENT  (issue #6)
         # This filters items by iterating through every stored item, which takes O(n) where
@@ -287,31 +301,15 @@ class InventoryManager:
         # this has a worse worst case scenario, O(n) where n = nodes, but should be faster for intended use case.
 
         if filter_path:
-            items_to_display = []
-            # Find node indicated by path
-            node = self.find_category_node(filter_path)
-            current_node = node         # tracks current node, starting with root
-            running = True              # bool for looping
-            next_nodes = LinkedQueue()
-            # Use a queue to implement a breadth first search, this allows us to also find items that are children
-            # of other nodes on the specified path
-            while running:
-                for item in current_node.items:
-                    items_to_display.append(item)
-
-
-                for child in current_node.children:                         # add children of current node to next_nodes queue
-                    next_nodes.enqueue(child)
-                if next_nodes.is_empty():                           # if next_nodes is empty, entire tree has been
-                    running = False                                 # searched
-                else:
-                    current_node = next_nodes.dequeue()
-
-
+            # Filter items whose category_path starts with the filter_path
+            # This ensures that selecting 'Electronics' also shows items in 'Electronics > Laptops'
+            items_to_display = [
+                item for item in self.items
+                if len(item.category_path) >= len(filter_path) and item.category_path[:len(filter_path)] == filter_path
+            ]
             filter_str = f" in Category: {' > '.join(filter_path)}"
         else:
             filter_str = ""
-            items_to_display = self.items
 
         if not items_to_display:
             print(f"\n--- Inventory is Empty{filter_str} ---")
@@ -344,7 +342,6 @@ class InventoryManager:
         except IOError as e:
             print(f"\n[SYSTEM ERROR] Error saving inventory: {e}")
 
-# Changed by Zach M. now loads inventory items into the category tree for issue #6
     def load_inventory(self, filename: str = "inventory_data.json"):
         """Loads inventory data and category tree from a JSON file."""
         try:
@@ -372,10 +369,6 @@ class InventoryManager:
                         category_path=item_data.get('category_path', [])
                     )
                     self.items.append(new_item)
-                    if new_item.category_path:
-                        node = self.find_category_node(new_item.category_path)
-                        node.items.append(self.items[-1])
-
 
             print(f"[SYSTEM] Successfully loaded {len(self.items)} items from '{filename}'.")
 
@@ -601,3 +594,4 @@ def run_app():
 # --- Main Entry Point ---
 if __name__ == "__main__":
     run_app()
+

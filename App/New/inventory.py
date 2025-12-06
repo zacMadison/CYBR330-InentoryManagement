@@ -122,46 +122,29 @@ class InventoryManager:
         parent_node.children.append(CategoryNode(new_category_name))
         print(f"[SUCCESS] Added category: {' > '.join(path)}")
 
-    def display_category_tree(self, node: Optional[CategoryNode] = None, level: int = 0):
-        """Iteratively prints the category tree structure without recursion,
-        perfectly matching the recursive version's behavior."""
+    def display_category_tree(self):
+        """Iteratively prints the category tree structure without recursion."""
+        if not self.category_tree:
+            print("No category tree available.")
+            return
 
-        # Match recursive behavior: If node is None, use ROOT and print header
-        if node is None:
-            node = self.category_tree
-            print("\n--- Current Category Tree ---")
-
-        # Explicit stack for iterative DFS
-        # (node, level, visited_children_flag)
-        stack = [(node, level, False)]
-
+        print("\n--- Current Category Tree ---")
+        
+        stack = [(self.category_tree, 0)]  # (node, level)
+        
         while stack:
-            node, level, visited = stack.pop()
-
-            if not visited:
-                # Simulate recursive behavior:
-                # First time we see the node:
-                #   1) print (if not ROOT)
-                #   2) then schedule children
-                #   3) then schedule node again as "visited"
-
-                # Print same as recursive version
-                if node.name != "ROOT":
-                    prefix = "  " * (level - 1)
-                    print(f"{prefix}└── {node.name}")
-
-                # Push back this node to handle after children
-                stack.append((node, level, True))
-
-                # Push children in reverse order for correct print order
-                for child in reversed(node.children):
-                    stack.append((child, level + 1, False))
-
-            else:
-                # After all children processed
-                if level == 0:
-                    # Match recursive version ending line
-                    print("-----------------------------\n")
+            node, level = stack.pop()
+            
+            # Skip the hidden ROOT node
+            if node.name != "ROOT":
+                prefix = "  " * (level - 1)
+                print(f"{prefix}└── {node.name}")
+            
+            # Add children to stack in reverse order to preserve original order
+            for child in reversed(node.children):
+                stack.append((child, level + 1))
+        
+        print("-----------------------------\n")
 
     # --- Item Management Methods ---
 
@@ -177,6 +160,7 @@ class InventoryManager:
             return
 
         self.items.append(item)
+        self.items.sort(key=lambda x: x.name.lower())
         print(f"[SUCCESS] Successfully added: {item.name}")
 
     def edit_item(self, name: str, new_quantity: Optional[int] = None, new_price: Optional[float] = None,
@@ -218,22 +202,68 @@ class InventoryManager:
             print(f"No valid updates provided for '{name}'.")
 
     def get_item_by_name(self, name: str) -> Optional[InventoryItem]:
-        """Retrieves an item by its name (case-insensitive)."""
-        # POSSIBLE IMPROVEMENT: Can be done with Binary Search (Issue #5)
-        for item in self.items:
-            if item.name.lower() == name.lower():
-                return item
+        """
+        Retrieves an item by its name using the existing binary_search function.
+
+        Returns:
+            - InventoryItem if found
+            - None if not found
+        """
+
+        # Call the existing binary_search function to get the index
+        index = self.binary_search(name)
+
+        # If index is valid, return the item
+        if index != -1:
+            return self.items[index]
+
+        # Otherwise, item not found
         return None
+
+    def binary_search(self, name: str) -> int:
+        """
+        Performs a binary search on the sorted list self.items to find an item by name.
+
+        Return value:
+            - Returns the index of the matching item if found
+            - Returns -1 if the item does not exist
+        """
+
+        left, right = 0, len(self.items) - 1
+        target = name.lower()  # Normalize search string for case-insensitive comparison
+
+        # Iteratively narrow down the search range
+        while left <= right:
+            mid = (left + right) // 2
+            current_name = self.items[mid].name.lower()
+
+            # Case 1: Match found → return index immediately
+            if current_name == target:
+                return mid
+
+            # Case 2: Target name is alphabetically larger than the mid element
+            elif current_name < target:
+                left = mid + 1  # Search in the right half
+
+            # Case 3: Target name is alphabetically smaller than mid element
+            else:
+                right = mid - 1  # Search in the left half
+
+        # If search interval collapses without finding a match, return -1
+        return -1
 
     # POSSIBLE IMPROVEMENT .remove takes O(N), can be done faster if list is sorted (Issue #5)
     def remove_item(self, name: str):
-        """Removes an item from the inventory by name."""
-        item_to_remove = self.get_item_by_name(name)
-        if item_to_remove:
-            self.items.remove(item_to_remove)
-            print(f"[SUCCESS] Successfully removed: {name}")
-        else:
+        index = self.binary_search(name)
+
+        if index == -1:
             print(f"[ERROR] Item '{name}' not found.")
+            return
+
+        removed_item = self.items.pop(index)
+
+        print(f"[SUCCESS] Successfully removed: {removed_item.name}")
+
 
     # POSSIBLE IMPROVEMENT  (issue #4)
     # Program uses .sort, python implementation of sort uses Timsort, this runs in the same time.
@@ -564,3 +594,4 @@ def run_app():
 # --- Main Entry Point ---
 if __name__ == "__main__":
     run_app()
+

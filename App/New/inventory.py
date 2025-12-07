@@ -278,18 +278,52 @@ class InventoryManager:
 
         sort_key_map = {
             'name': (lambda item: item.name.lower(), "Name (Alphabetical)"),
-            'date': (lambda item: item.date_added, "Date Added (Oldest first)"),
+            'date': (lambda item: item.date_added, "Date Added (Oldest First)"),
             'quantity': (lambda item: item.quantity, "Quantity (Low to High)"),
             'price': (lambda item: item.price, "Price (Low to High)"),
             'category': (lambda item: ' > '.join(item.category_path).lower(), "Category Path")
         }
 
-        if key in sort_key_map:
-            sort_func, label = sort_key_map[key]
-            self.items.sort(key=sort_func)
-            print(f"\n[SUCCESS] Inventory sorted by {label}")
-        else:
+        if key not in sort_key_map:
             print(f"[ERROR] Invalid sorting key '{key}'. Valid keys are: name, date, quantity, price, category.")
+            return
+
+        sort_func, label = sort_key_map[key]
+
+        # Use custom heap sort instead of Python's built-in Timsort
+        self.heap_sort(self.items, sort_func)
+
+        print(f"\n[SUCCESS] Inventory sorted by {label} (Heap Sort)")
+
+    # -------------------------
+    # Heap Sort Implementation
+    # -------------------------
+    def heapify(self, arr, n, i, key_func):
+        largest = i
+        left = 2 * i + 1
+        right = 2 * i + 2
+
+        if left < n and key_func(arr[left]) > key_func(arr[largest]):
+            largest = left
+        if right < n and key_func(arr[right]) > key_func(arr[largest]):
+            largest = right
+
+        if largest != i:
+            arr[i], arr[largest] = arr[largest], arr[i]
+            self.heapify(arr, n, largest, key_func)
+
+    def heap_sort(self, arr, key_func):
+        n = len(arr)
+
+        # Build max heap
+        for i in range(n // 2 - 1, -1, -1):
+            self.heapify(arr, n, i, key_func)
+
+        # Extract elements one by one
+        for i in range(n - 1, 0, -1):
+            arr[i], arr[0] = arr[0], arr[i]  # swap
+            self.heapify(arr, i, 0, key_func)
+
 
     def display_inventory(self, filter_path: Optional[List[str]] = None):
         """Prints the current inventory items, optionally filtered by category."""

@@ -2,16 +2,23 @@ import datetime
 from typing import List, Optional, Dict, Any
 import json
 import os
+import sys
+data_structures_path = os.path.abspath('DataStructures')
+sys.path.append(data_structures_path)
+from linked_queue import LinkedQueue
 
 
 # --- New Category Tree Structure ---
 
+
 class CategoryNode:
     """Represents a single node in the category hierarchy."""
 
+    # Changed by Zach M. Added variable to track inventory items
     def __init__(self, name: str):
         self.name: str = name
         self.children: List['CategoryNode'] = []
+        self.items = []
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the node and its children to a serializable dictionary."""
@@ -122,6 +129,9 @@ class InventoryManager:
         parent_node.children.append(CategoryNode(new_category_name))
         print(f"[SUCCESS] Added category: {' > '.join(path)}")
 
+
+    # COMPLETED IMPROVEMENT: remove recursion
+    # Implemented by Kwanho Kwon
     def display_category_tree(self):
         """Iteratively prints the category tree structure without recursion."""
         if not self.category_tree:
@@ -148,8 +158,10 @@ class InventoryManager:
 
     # --- Item Management Methods ---
 
+    # Changed by Zach M. now category tree stores items
     def add_item(self, item: InventoryItem):
         """Adds a new item to the inventory, ensuring the category exists."""
+        # POSSIBLE FIX: Binary search instead
         if any(i.name.lower() == item.name.lower() for i in self.items):
             print(f"[ERROR] Item '{item.name}' already exists.")
             return
@@ -160,6 +172,10 @@ class InventoryManager:
             return
 
         self.items.append(item)
+        if item.category_path:
+            node = self.find_category_node(item.category_path)
+            node.items.append(item)
+        # POSSIBLE: MAY BE WRONG
         self.items.sort(key=lambda x: x.name.lower())
         print(f"[SUCCESS] Successfully added: {item.name}")
 
@@ -188,12 +204,19 @@ class InventoryManager:
             print("[WARNING] Price must be non-negative. Price not changed.")
 
         # Update Category Path
-        if new_category_path is not None:
+        # CHANGED BY ZACH M: Now also changes items inside tree when category path is updated
+        # Bug fix: previously triggered even when not changed ancause new_category_path input is never none
+        if not new_category_path == []:
             if new_category_path and not self.find_category_node(new_category_path):
                 print(
                     f"[ERROR] New category path {' > '.join(new_category_path)} does not exist. Category not changed.")
             else:
+                if not item.category_path == []:
+                    node = self.find_category_node(item.category_path)
+                    node.items.remove(item)
                 item.category_path = new_category_path
+                new_node = self.find_category_node(item.category_path)
+                new_node.items.append(item)
                 updated_fields.append(f"Category -> {' > '.join(new_category_path)}")
 
         if updated_fields:
@@ -201,6 +224,7 @@ class InventoryManager:
         else:
             print(f"No valid updates provided for '{name}'.")
 
+    # may cause issues due to existence in items and not as part of the main program
     def get_item_by_name(self, name: str) -> Optional[InventoryItem]:
         """
         Retrieves an item by its name using the existing binary_search function.
@@ -220,6 +244,8 @@ class InventoryManager:
         # Otherwise, item not found
         return None
 
+
+    # binary_search implemented by Kwonho Kwan
     def binary_search(self, name: str) -> int:
         """
         Performs a binary search on the sorted list self.items to find an item by name.
@@ -252,7 +278,8 @@ class InventoryManager:
         # If search interval collapses without finding a match, return -1
         return -1
 
-    # POSSIBLE IMPROVEMENT .remove takes O(N), can be done faster if list is sorted (Issue #5)
+    # COMPLETED IMPROVEMENT .remove takes O(N), can be done faster if list is sorted and searched with a binary search.
+    # Implemented by Kwanho Kwon
     def remove_item(self, name: str):
         index = self.binary_search(name)
 
@@ -265,10 +292,13 @@ class InventoryManager:
         print(f"[SUCCESS] Successfully removed: {removed_item.name}")
 
 
-    # POSSIBLE IMPROVEMENT  (issue #4)
+    # IMPROVEMENT  (issue #4)
     # Program uses .sort, python implementation of sort uses Timsort, this runs in the same time.
     # The drawback of Timsort is that it uses O(n) Auxiliary space,
     # where heap sort only takes O(n) total space (O(1) Auxiliary space)
+
+    # COMPLETED: Implemented by Seiya Genda
+
     def sort_inventory(self, key: str):
         """
         Sorts the inventory based on the specified key.
@@ -324,27 +354,44 @@ class InventoryManager:
             arr[i], arr[0] = arr[0], arr[i]  # swap
             self.heapify(arr, i, 0, key_func)
 
+    # COMPLETED IMPROVEMENT  (issue #6)
+    # Originally displayed item by category by going through every possible item and checking the category it
+    # belongs to, now searches the category tree. This implementation saves time in the intended use case scenario.
+    # Worst case of both solutions is the same, original being O(N) where N = items, new is O(N) where
+    # N = category nodes + items belonging to branch
 
+    # Implemented by Zach Madison
     def display_inventory(self, filter_path: Optional[List[str]] = None):
         """Prints the current inventory items, optionally filtered by category."""
-        items_to_display = self.items
-
-        # POSSIBLE IMPROVEMENT  (issue #6)
-        # This filters items by iterating through every stored item, which takes O(n) where
-        # n = number of items. This could instead be done by navigating the category tree and adding items from there.
-        # this has a worse worst case scenario, O(n) where n = nodes, but should be faster for intended use case.
-
         if filter_path:
-            # Filter items whose category_path starts with the filter_path
-            # This ensures that selecting 'Electronics' also shows items in 'Electronics > Laptops'
-            items_to_display = [
-                item for item in self.items
-                if len(item.category_path) >= len(filter_path) and item.category_path[:len(filter_path)] == filter_path
-            ]
-            filter_str = f" in Category: {' > '.join(filter_path)}"
+            items_to_display = []
+
+
+            # Find node indicated by path
+
+            node = self.find_category_node(filter_path)
+
+            current_node = node         # tracks current node, starting with root
+            running = True              # bool for looping
+            next_nodes = LinkedQueue()
+
+            # Use a queue to implement a breadth first search, this allows us to also find items that are children
+            # of other nodes on the specified path
+            while running:
+                for item in current_node.items:
+                    items_to_display.append(item)
+
+                for child in current_node.children:                 # add children of current node to next_nodes queue
+                    next_nodes.enqueue(child)
+
+                if next_nodes.is_empty():                           # if next_nodes is empty, entire tree has been
+                    running = False                                 # searched
+                else:
+                    current_node = next_nodes.dequeue()
+                filter_str = f" in Category: {' > '.join(filter_path)}"
         else:
             filter_str = ""
-
+            items_to_display = self.items
         if not items_to_display:
             print(f"\n--- Inventory is Empty{filter_str} ---")
             return
@@ -376,6 +423,7 @@ class InventoryManager:
         except IOError as e:
             print(f"\n[SYSTEM ERROR] Error saving inventory: {e}")
 
+    # Changed by Zach M. now loads inventory items into the category tree for issue #6
     def load_inventory(self, filename: str = "inventory_data.json"):
         """Loads inventory data and category tree from a JSON file."""
         try:
@@ -403,6 +451,9 @@ class InventoryManager:
                         category_path=item_data.get('category_path', [])
                     )
                     self.items.append(new_item)
+                    if new_item.category_path:
+                        node = self.find_category_node(new_item.category_path)
+                        node.items.append(self.items[-1])
 
             print(f"[SYSTEM] Successfully loaded {len(self.items)} items from '{filename}'.")
 
@@ -553,7 +604,8 @@ def run_app():
             print("\n--- EDIT ITEM ---")
             name_to_edit = input("Enter name of item to edit: ").strip()
 
-            # POSSIBLE IMPROVEMENT: function get_item_by_name can be improved with binary search (issue #5)
+            # COMPLETED IMPROVEMENT: function get_item_by_name can be improved with binary search (issue #5)
+
             if not manager.get_item_by_name(name_to_edit):
                 print(f"[ERROR] Item '{name_to_edit}' not found.")
                 continue

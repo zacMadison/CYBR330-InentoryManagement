@@ -80,6 +80,10 @@ class InventoryManager:
 
     def __init__(self):
         self.items: List[InventoryItem] = []
+
+        # three-dimensional array, stores name of item and index in the items list
+        self.items_sorted = []
+        self.sorted_by = None
         # Initialize the root of the category tree (used as a hidden container for top-level categories)
         self.category_tree: CategoryNode = CategoryNode("ROOT")
 
@@ -161,8 +165,8 @@ class InventoryManager:
     # Changed by Zach M. now category tree stores items
     def add_item(self, item: InventoryItem):
         """Adds a new item to the inventory, ensuring the category exists."""
-        # POSSIBLE FIX: Binary search instead
-        if any(i.name.lower() == item.name.lower() for i in self.items):
+        # Improvement: now uses binary search; o(n) -> o(log(n))
+        if self.get_item_by_name(item.name) is not None:
             print(f"[ERROR] Item '{item.name}' already exists.")
             return
 
@@ -175,14 +179,17 @@ class InventoryManager:
         if item.category_path:
             node = self.find_category_node(item.category_path)
             node.items.append(item)
-        # POSSIBLE: MAY BE WRONG
-        self.items.sort(key=lambda x: x.name.lower())
+
+        sorted_index = self.binary_insertion(item.name)
+        new_item = [item.name, len(self.items) - 1]
+        self.items_sorted.insert(sorted_index, new_item)
         print(f"[SUCCESS] Successfully added: {item.name}")
 
     def edit_item(self, name: str, new_quantity: Optional[int] = None, new_price: Optional[float] = None,
                   new_category_path: Optional[List[str]] = None):
         """Edits the quantity, price, or category of an existing item."""
         item = self.get_item_by_name(name)
+
         if not item:
             print(f"[ERROR] Cannot edit. Item '{name}' not found.")
             return
@@ -205,7 +212,7 @@ class InventoryManager:
 
         # Update Category Path
         # CHANGED BY ZACH M: Now also changes items inside tree when category path is updated
-        # Bug fix: previously triggered even when not changed ancause new_category_path input is never none
+        # Bug fix: previously triggered even when not changed because new_category_path input is never none
         if not new_category_path == []:
             if new_category_path and not self.find_category_node(new_category_path):
                 print(
@@ -246,7 +253,8 @@ class InventoryManager:
 
 
     # binary_search implemented by Kwonho Kwan
-    def binary_search(self, name: str) -> int:
+    # altered by Zach Madison to function with items_sorted instead
+    def binary_search(self, name: str, sorted_index = False):
         """
         Performs a binary search on the sorted list self.items to find an item by name.
 
@@ -255,17 +263,21 @@ class InventoryManager:
             - Returns -1 if the item does not exist
         """
 
-        left, right = 0, len(self.items) - 1
+        left, right = 0, len(self.items_sorted) - 1
         target = name.lower()  # Normalize search string for case-insensitive comparison
 
         # Iteratively narrow down the search range
+
         while left <= right:
             mid = (left + right) // 2
-            current_name = self.items[mid].name.lower()
+            current_name = self.items_sorted[mid][0].lower()
 
             # Case 1: Match found → return index immediately
             if current_name == target:
-                return mid
+                if not sorted_index:
+                    return self.items_sorted[mid][1]
+                else:
+                    return self.items_sorted[mid][1], mid
 
             # Case 2: Target name is alphabetically larger than the mid element
             elif current_name < target:
@@ -278,17 +290,43 @@ class InventoryManager:
         # If search interval collapses without finding a match, return -1
         return -1
 
+    # Binary Insertion: modified version of binary sort for faster insertion into a sorted list; made by Zach Madison
+    def binary_insertion(self, name):
+        left, right = 0, len(self.items_sorted) - 1
+        target = name.lower()  # Normalize search string for case-insensitive comparison
+
+        # Iteratively narrow down the search range
+        while left <= right:
+            mid = (left + right) // 2
+            current_name = self.items_sorted[mid][0].lower()
+
+            # if match is found return -1 to indicate that the item already exists
+            if current_name == target:
+                breakpoint()
+                return -1
+
+            # if current mid is less than target move left to mid plus one
+            elif current_name < target:
+                left = mid + 1  # Search in the right half
+
+            # last scenario is mid is greater than target, move right to left of mid
+            else:
+                right = mid - 1  # Search in the left half
+
+        # If all options are exhausted value belongs at left
+        return left
+
     # COMPLETED IMPROVEMENT .remove takes O(N), can be done faster if list is sorted and searched with a binary search.
     # Implemented by Kwanho Kwon
     def remove_item(self, name: str):
-        index = self.binary_search(name)
+        index, sorted_index = self.binary_search(name, True)
 
         if index == -1:
             print(f"[ERROR] Item '{name}' not found.")
             return
 
         removed_item = self.items.pop(index)
-
+        self.items_sorted.pop(sorted_index)
         print(f"[SUCCESS] Successfully removed: {removed_item.name}")
 
 
@@ -305,7 +343,7 @@ class InventoryManager:
         Valid keys: 'name', 'date', 'quantity', 'price', 'category'.
         """
         key = key.lower()
-
+        self.sorted_by = key
         sort_key_map = {
             'name': (lambda item: item.name.lower(), "Name (Alphabetical)"),
             'date': (lambda item: item.date_added, "Date Added (Oldest First)"),
@@ -322,8 +360,23 @@ class InventoryManager:
 
         # Use custom heap sort instead of Python's built-in Timsort
         self.heap_sort(self.items, sort_func)
-
+        self.reset_sorted_list()
         print(f"\n[SUCCESS] Inventory sorted by {label} (Heap Sort)")
+
+    # Written by Zach, resets sorted list
+    def reset_sorted_list(self):
+        index = 0
+        # if sorted by name, then list is already in correct positions, O(n) instead
+        if self.sorted_by == "name":
+            for i in range(len(self.items_sorted)):
+                self.items_sorted[i][1] = i
+        else:
+            # Runs in O(n log(n))
+            for i in self.items:
+                sorted_index = self.binary_search(i.name)       # find index of item copy in self.items_sorted
+                self.items_sorted[sorted_index][1] = index      # replace current index with new index
+                index += 1
+
 
     # -------------------------
     # Heap Sort Implementation
@@ -439,6 +492,7 @@ class InventoryManager:
 
             # Load items
             if 'items' in data_loaded:
+                index = 0
                 for item_data in data_loaded['items']:
                     date_obj = datetime.datetime.fromisoformat(item_data['date_added'])
 
@@ -451,6 +505,9 @@ class InventoryManager:
                         category_path=item_data.get('category_path', [])
                     )
                     self.items.append(new_item)
+                    sorted_index = self.binary_insertion(new_item.name)
+                    self.items_sorted.insert(sorted_index, [new_item.name, index])
+                    index += 1
                     if new_item.category_path:
                         node = self.find_category_node(new_item.category_path)
                         node.items.append(self.items[-1])
@@ -463,6 +520,9 @@ class InventoryManager:
             print(f"\n[SYSTEM ERROR] Could not decode JSON data from '{filename}'. File corrupted.")
         except Exception as e:
             print(f"\n[SYSTEM ERROR] An error occurred during loading: {e}")
+
+
+
 
 
 # --- Helper Functions for Menu Loop ---

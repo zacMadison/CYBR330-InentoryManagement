@@ -427,10 +427,7 @@ class InventoryManager:
         """Prints the current inventory items, optionally filtered by category."""
         if filter_path:
             items_to_display = []
-
-
             # Find node indicated by path
-
             node = self.find_category_node(filter_path)
 
             current_node = node         # tracks current node, starting with root

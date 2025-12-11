@@ -3,6 +3,9 @@ from typing import List, Optional, Dict, Any
 import json
 import os
 import sys
+import timeit
+import time
+import random
 data_structures_path = os.path.abspath('DataStructures')
 sys.path.append(data_structures_path)
 from linked_queue import LinkedQueue
@@ -191,7 +194,7 @@ class InventoryManager:
         item = self.get_item_by_name(name)
 
         if not item:
-            print(f"[ERROR] Cannot edit. Item '{name}' not found.")
+
             return
 
         updated_fields = []
@@ -213,7 +216,7 @@ class InventoryManager:
         # Update Category Path
         # CHANGED BY ZACH M: Now also changes items inside tree when category path is updated
         # Bug fix: previously triggered even when not changed because new_category_path input is never none
-        if not new_category_path == []:
+        if not new_category_path == [] and new_category_path is not None:
             if new_category_path and not self.find_category_node(new_category_path):
                 print(
                     f"[ERROR] New category path {' > '.join(new_category_path)} does not exist. Category not changed.")
@@ -228,8 +231,7 @@ class InventoryManager:
 
         if updated_fields:
             print(f"[SUCCESS] Successfully updated '{name}'. Changes: {', '.join(updated_fields)}")
-        else:
-            print(f"No valid updates provided for '{name}'.")
+
 
     # may cause issues due to existence in items and not as part of the main program
     def get_item_by_name(self, name: str) -> Optional[InventoryItem]:
@@ -275,6 +277,7 @@ class InventoryManager:
             # Case 1: Match found → return index immediately
             if current_name == target:
                 if not sorted_index:
+
                     return self.items_sorted[mid][1]
                 else:
                     return self.items_sorted[mid][1], mid
@@ -288,6 +291,8 @@ class InventoryManager:
                 right = mid - 1  # Search in the left half
 
         # If search interval collapses without finding a match, return -1
+        if sorted_index:
+            return -1, -1
         return -1
 
     # Binary Insertion: modified version of binary sort for faster insertion into a sorted list; made by Zach Madison
@@ -302,7 +307,6 @@ class InventoryManager:
 
             # if match is found return -1 to indicate that the item already exists
             if current_name == target:
-                breakpoint()
                 return -1
 
             # if current mid is less than target move left to mid plus one
@@ -319,10 +323,11 @@ class InventoryManager:
     # COMPLETED IMPROVEMENT .remove takes O(N), can be done faster if list is sorted and searched with a binary search.
     # Implemented by Kwanho Kwon
     def remove_item(self, name: str):
+
         index, sorted_index = self.binary_search(name, True)
 
         if index == -1:
-            print(f"[ERROR] Item '{name}' not found.")
+
             return
 
         removed_item = self.items.pop(index)
@@ -335,7 +340,6 @@ class InventoryManager:
                 self.items_sorted[loop][1] -= 1
             loop += 1
 
-        print(f"[SUCCESS] Successfully removed: {removed_item.name}")
 
 
     # IMPROVEMENT  (issue #4)
@@ -639,6 +643,255 @@ def category_management_loop(manager: InventoryManager):
             print("\n[INPUT ERROR] Invalid choice. Please select a number between 1 and 3.")
 
 
+
+# print statements removed where applicable for readability
+
+def test_app():
+    manager_one = create_normal_json()
+    manager_two = create_large_json()
+
+
+    item = InventoryItem("test Item", 0, 0, [])
+    item2 = InventoryItem("Lopsided Test", 0, 0, ["b", "bb", "bbb", "bbbb", "bbbbb",
+                                                  "bbbbbb", "bbbbbbb", "bbbbbbbb", "bbbbbbbbb", "bbbbbbbbbb",
+                                                  "bbbbbbbbbbb", "bbbbbbbbbbbb", "bbbbbbbbbbbbb",
+                                                  "bbbbbbbbbbbbbb", "bbbbbbbbbbbbbbb"])
+    """print("ADD:")
+    print("    Normal Testcase:")
+
+    # print("        Time: " + str(total_time))
+    print(timeit.timeit(lambda: manager_one.add_item(item), number=1))
+
+    print("    Lopsided Testcase: ")
+    print(timeit.timeit(lambda: manager_two.add_item(item), number=1))
+    print(timeit.timeit(lambda: manager_two.add_item(item2), number=1))"""
+    test_add(manager_one, manager_two)
+    # test_category_display(manager_one, manager_two)
+    # test_edit(manager_one, manager_two)
+    # test_inventory_display(manager_one, manager_two)
+
+
+
+
+def reset_managers():
+    manager_one = create_normal_json()
+    manager_two = create_large_json()
+    return  manager_one, manager_two
+
+
+def test_add(manager_one: InventoryManager, manager_two: InventoryManager):
+    print("ADD test")
+    start_time = time.perf_counter()
+    for i in range(1000):
+        manager_one.add_item(InventoryItem("c" * (i + 1), 0, 0, []))
+    end_time = time.perf_counter()
+    no_category_time = end_time-start_time
+
+    worst_case = ["b", "bb", "bbb", "bbbb", "bbbbb", "bbbbbb", "bbbbbbb", "bbbbbbbb", "bbbbbbbbb", "bbbbbbbbbb",
+    "bbbbbbbbbbb", "bbbbbbbbbbbb", "bbbbbbbbbbbbb", "bbbbbbbbbbbbbb", "bbbbbbbbbbbbbbb"]
+
+
+    start_time = time.perf_counter()
+    for i in range(1000):
+        manager_two.add_item(InventoryItem("c" * (i + 1), 0, 0, worst_case))
+    end_time = time.perf_counter()
+    worst_case_time = end_time - start_time
+    print("Without Category")
+    print(no_category_time)
+    print("Worst case category")
+    print(worst_case_time)
+
+
+
+def test_delete(manager_one, manager_two):
+    print("REMOVE:")
+
+    nonexistant_one = "this doesnt exist"
+    print("    Normal Testcase")
+
+    iterations = 100
+
+    print("existing item")
+    time_start = time.perf_counter()
+    for _ in range(iterations):
+        manager_one.remove_item(random.choice(manager_one.items).name)
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+    print("non existing item")
+    iterations = 1000
+    time_start = time.perf_counter()
+    for _ in range(iterations):
+        manager_one.remove_item(nonexistant_one)
+    time_end = time.perf_counter()
+    print(time_end-time_start)
+
+    print("lopsided")
+
+
+    iterations = 100
+    print("existing item")
+    time_start = time.perf_counter()
+    for _ in range(iterations):
+        manager_one.remove_item(random.choice(manager_two.items).name)
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+    print("non existing item")
+    iterations = 1000
+    time_start = time.perf_counter()
+    for _ in range(iterations):
+        manager_two.remove_item(nonexistant_one)
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+
+def test_edit(manager_one: InventoryManager, manager_two: InventoryManager):
+    print("EDIT:")
+    # not editing any items, all edits are constant
+
+    print("random existent item")
+    time_start = time.perf_counter()
+    for _ in range(1000):
+        manager_one.edit_item(random.choice(manager_one.items).name)
+    time_end = time.perf_counter()
+    print(time_end-time_start)
+
+    time_start = time.perf_counter()
+    for _ in range(1000):
+        manager_two.edit_item(random.choice(manager_two.items).name)
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+
+    print("non existent item")
+    time_start = time.perf_counter()
+    for _ in range(1000):
+        manager_one.edit_item("non existent")
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+    time_start = time.perf_counter()
+    for _ in range(1000):
+        manager_two.edit_item("non existent")
+    time_end = time.perf_counter()
+    print(time_end - time_start)
+
+
+def test_inventory_display(manager_one: InventoryManager, manager_two: InventoryManager):
+    print("inventory display test")
+    start_time = time.perf_counter()
+    for _ in range(1000):
+        manager_one.display_inventory(["b"])
+    end_time = time.perf_counter()
+    normal_scenario = end_time-start_time
+
+    start_time = time.perf_counter()
+    for _ in range(1000):
+        manager_two.display_inventory(["b"])
+    end_time = time.perf_counter()
+    worst_scenario = end_time - start_time
+
+    print("normal scenario")
+    print(normal_scenario)
+    print("worst scenario")
+    print(worst_scenario)
+
+
+# Speed from removed recursion
+def test_category_display(manager_one: InventoryManager, manager_two: InventoryManager):
+    start_time = time.perf_counter()
+    for _ in range(1000):
+        manager_one.display_category_tree()
+    end_time = time.perf_counter()
+    m_one_time = end_time-start_time
+
+    start_time = time.perf_counter()
+    for _ in range(1000):
+        manager_two.display_category_tree()
+    end_time = time.perf_counter()
+    m_two_time = end_time - start_time
+
+    print("normal")
+    print(m_one_time)
+
+    print('lopsided')
+    print(m_two_time)
+
+
+def create_normal_json():
+    manager = InventoryManager()
+    # small reasonable test case 10 items per category, 2 subcategories for category, and 5 categories
+    # item name with be a series of a's, with an additional a for each loop
+    item_name = 1
+    # category name will be a series of b's with an additional b for each loop
+    category_name = 1
+    category_number = 0
+    item_number = 0
+    running = True
+
+    while category_number < 5:
+        item_number = 0
+        manager.add_category(["b" * category_name])
+        manager.add_category(["b" * (category_name), "b" * (category_name + 1)])
+        manager.add_category(["b" * (category_name), "b" * (category_name + 2)])
+        while item_number < 10:
+            item = InventoryItem("a" * item_name, 0, 0, ["b" * category_name])
+            manager.add_item(item)
+            item_name += 1
+            item_number += 1
+        item_number = 0
+
+        while item_number < 10:
+            item = InventoryItem("a" * item_name, 0, 0, ["b" * category_name, "b" * (category_name + 1)])
+            manager.add_item(item)
+            item_name += 1
+            item_number += 1
+
+        while item_number < 10:
+            item = InventoryItem("a" * item_name, 0, 0, ["b" * category_name, "b" * (category_name + 2)])
+            manager.add_item(item)
+            item_name += 1
+            item_number += 1
+
+
+
+        category_name += 3
+        category_number += 1
+
+    return manager
+
+
+
+
+def create_large_json():
+    # lopsided testcase, worst case
+    # 15 categories, 150 items (10 per category)
+    manager = InventoryManager()
+    item_name = 1
+    # category name will be a series of b's with an additional b for each loop
+    category_name = 1
+    category_number = 0
+    item_number = 0
+    while category_number < 15:
+        item_number = 0
+        path = []
+        for i in range(category_name):
+            path.append("b" * (i+1))
+
+        category_name += 1
+        manager.add_category(path)
+        while item_number < 10:
+            item = InventoryItem("a" * item_name, 0, 0, path)
+            manager.add_item(item)
+            item_name += 1
+            item_number += 1
+        category_number += 1
+
+    return manager
+
+
+
 def run_app():
     """Main application loop."""
     manager = InventoryManager()
@@ -747,5 +1000,6 @@ def run_app():
 
 # --- Main Entry Point ---
 if __name__ == "__main__":
-    run_app()
+    test_app()
+
 

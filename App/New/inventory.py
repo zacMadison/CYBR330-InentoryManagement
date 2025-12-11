@@ -546,10 +546,10 @@ def main_menu():
     print("3. Remove Item")
     print("4. Sort Inventory")
     print("5. Display Inventory")
-    print("7. Category Management")
-    print("6. Save & Exit")
+    print("6. Category Management")
+    print("7. Save & Exit")
     print("-" * 40)
-    return input("Enter your choice (1-7, 6 to exit): ")
+    return input("Enter your choice (1-6, 7 to exit): ")
 
 
 def category_menu():
@@ -732,11 +732,11 @@ def run_app():
 
             manager.display_inventory(filter_path_to_use)
 
-        elif choice == '7':
+        elif choice == '6':
             # Category Management
             category_management_loop(manager)
 
-        elif choice == '6':
+        elif choice == '7':
             # Save and Exit
             print("\n--- EXITING APPLICATION ---")
             manager.save_inventory()

@@ -431,7 +431,8 @@ def test_app():
     # test_category_display(manager_one, manager_two)
     # test_edit(manager_one, manager_two)
     # test_inventory_display(manager_one, manager_two)
-    test_add(manager_one, manager_two)
+    # test_add(manager_one, manager_two)
+    # test_delete(manager_one, manager_two)
 
 
 def test_add(manager_one: InventoryManager, manager_two: InventoryManager):

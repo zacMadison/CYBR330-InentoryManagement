@@ -171,13 +171,14 @@ class InventoryManager:
             return
 
         # Validate category path before adding item
-        if item.category_path and not self.find_category_node(item.category_path):
+        category_node = self.find_category_node(item.category_path)
+        if item.category_path and not category_node:
             print(f"[ERROR] Category path {' > '.join(item.category_path)} does not exist. Please create it first.")
             return
 
         self.items.append(item)
         if item.category_path:
-            node = self.find_category_node(item.category_path)
+            node = category_node
             node.items.append(item)
 
         sorted_index = self.binary_insertion(item.name)

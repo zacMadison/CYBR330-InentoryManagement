@@ -172,15 +172,15 @@ class InventoryManager:
         if self.get_item_by_name(item.name) is not None:
             print(f"[ERROR] Item '{item.name}' already exists.")
             return
-
+        category_node = self.find_category_node(item.category_path)
         # Validate category path before adding item
-        if item.category_path and not self.find_category_node(item.category_path):
+        if item.category_path and not category_node:
             print(f"[ERROR] Category path {' > '.join(item.category_path)} does not exist. Please create it first.")
             return
 
         self.items.append(item)
         if item.category_path:
-            node = self.find_category_node(item.category_path)
+            node = category_node
             node.items.append(item)
 
         sorted_index = self.binary_insertion(item.name)
@@ -650,22 +650,8 @@ def test_app():
     manager_one = create_normal_json()
     manager_two = create_large_json()
 
-
-    item = InventoryItem("test Item", 0, 0, [])
-    item2 = InventoryItem("Lopsided Test", 0, 0, ["b", "bb", "bbb", "bbbb", "bbbbb",
-                                                  "bbbbbb", "bbbbbbb", "bbbbbbbb", "bbbbbbbbb", "bbbbbbbbbb",
-                                                  "bbbbbbbbbbb", "bbbbbbbbbbbb", "bbbbbbbbbbbbb",
-                                                  "bbbbbbbbbbbbbb", "bbbbbbbbbbbbbbb"])
-    """print("ADD:")
-    print("    Normal Testcase:")
-
-    # print("        Time: " + str(total_time))
-    print(timeit.timeit(lambda: manager_one.add_item(item), number=1))
-
-    print("    Lopsided Testcase: ")
-    print(timeit.timeit(lambda: manager_two.add_item(item), number=1))
-    print(timeit.timeit(lambda: manager_two.add_item(item2), number=1))"""
-    test_add(manager_one, manager_two)
+    # test_add(manager_one, manager_two)
+    # test_delete(manager_one, manager_two)
     # test_category_display(manager_one, manager_two)
     # test_edit(manager_one, manager_two)
     # test_inventory_display(manager_one, manager_two)
